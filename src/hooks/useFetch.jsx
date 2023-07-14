@@ -42,7 +42,7 @@ const useFetch = (url, method = 'GET', body = null) => {
         dispatch({ type: 'SUCCESS', payload: response?.data })
       } catch (error) {
         console.log(error)
-        const err = error.response.data.message === 'Invalid / Expired token'
+        const err = error.response?.data?.message === 'Invalid / Expired token'
         if (err) {
           navigate('/login')
           localStorage.clear()

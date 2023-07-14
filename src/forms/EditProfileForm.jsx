@@ -11,12 +11,20 @@ const EditProfileForm = ({ onSubmit, errors, isLoading, profile }) => {
   const provRef = useRef()
   const cityRef = useRef()
   const postalRef = useRef()
-  const { data: loc } = useFetch('https://ipinfo.io/json?token=45022df7aed476')
+  // const { data: loc } = useFetch()
   useEffect(() => {
-    !profile?.province && (provRef.current.value = loc.region)
-    !profile?.city && (cityRef.current.value = loc.city)
-    !profile?.postal && (postalRef.current.value = loc.postal)
-  }, [loc])
+    // axios
+    //   .get('https://ipinfo.io/json?token=45022df7aed476')
+    //   .then((res) => console.log(res))
+    //   .catch((err) => console.log(err))
+
+    // !profile?.province && (provRef.current.value = loc.region)
+    !profile?.province && (provRef.current.value = 'Punjab')
+    // !profile?.city && (cityRef.current.value = loc.city)
+    !profile?.city && (cityRef.current.value = 'Multan')
+    // !profile?.postal && (postalRef.current.value = loc.postal)
+    !profile?.postal && (postalRef.current.value = 60750)
+  }, [])
   const handleImgChange = () => {
     setimg(URL.createObjectURL(imgRef.current.files[0]))
   }

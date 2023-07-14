@@ -14,6 +14,7 @@ import {
   ShowUser,
   AdminPage,
   ShowAdmin,
+  ShowJobPage,
 } from './pages'
 import Protected from './context/Protected'
 
@@ -27,6 +28,7 @@ function App() {
           <Route element={<Layout />}>
             <Route path='/' element={<DashboardPage />} />
             <Route path='/jobs' element={<JobsPage />} />
+            <Route path='/jobs/show' element={<ShowJobPage />} />
             <Route path='/agents' element={<AgentsPage />} />
             <Route path='/agents/show' element={<ShowAgent />} />
             <Route path='/users' element={<UsersPage />} />

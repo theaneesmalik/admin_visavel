@@ -3,9 +3,11 @@ import { styled } from '@mui/material/styles'
 
 import {
   Button,
+  Container,
   createTheme,
   Divider,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -15,8 +17,9 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material'
-
-import { useEffect, useMemo, useState, useContext } from 'react'
+import useFetch from '../hooks/useFetch'
+import MyDialog from '../components/MyDialog'
+import { useEffect, useMemo, useState } from 'react'
 import { Box } from '@mui/system'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -32,7 +35,6 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
     border: 0,
   },
 }))
-let gRows = []
 
 const headStyle = {
   color: 'black',
@@ -40,76 +42,83 @@ const headStyle = {
 }
 const Jobs = () => {
   const [openDialog, setOpenDialog] = useState(false)
-
-  const [showUser, setShowUser] = useState({ status: false })
   const [del, setDel] = useState({ id: null, name: '' })
-  const [rows, setRows] = useState(gRows)
+  const [rows, setRows] = useState([{}])
   const navigate = useNavigate()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [query, setQuery] = useState('')
-  const token = localStorage.getItem('authToken')
-
+  const { data, loading } = useFetch(`/jobs/`)
   useEffect(() => {
-    const CancelToken = axios.CancelToken
-    const source = CancelToken.source()
-    axios
-      .get('secureCustomers.php', {
-        cancelToken: source.token,
-        headers: { Authorization: token },
-      })
-      .then((result) => {
-        if (result.data.error === 'Expired token') {
-          localStorage.clear()
-          navigate('/login')
-        }
-        setRows(result.data)
-      })
-      .catch((error) => console.log(error))
-    return () => {
-      source.cancel()
-    }
-  }, [])
+    if (!loading) setRows(data)
+  }, [data])
   const handleDel = async (id) => {
-    let formData = new FormData()
-    formData.append('toDel', id)
+    const requestOptions = {
+      method: 'delete',
+      url: '/jobs',
+      data: { id },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('adminAuthToken')}`,
+      },
+    }
     await axios
-      .post('delCustomer.php', formData, { headers: { Authorization: token } })
+      .request(requestOptions)
       .then((result) => {
-        if (result.data.error === 'Expired token') {
-          localStorage.clear()
-
-          navigate('/login')
+        if (result.data) {
+          setRows((prevRows) => prevRows.filter((row) => row._id !== id))
         }
-        setShowUser({ status: false })
       })
-      .catch((error) => console.log(error))
+      .catch((error) => {
+        console.log(error)
+        const err = error.response.data.message === 'Invalid / Expired token'
+        if (err) {
+          navigate('/login')
+          localStorage.clear()
+        }
+      })
   }
   const filteredRows = useMemo(() => {
-    return rows.filter((item) => {
-      return item.name.toLowerCase().includes(query.toLowerCase())
-    })
+    if (!query) return rows
+    return rows.filter((item) => item.title?.toLowerCase().includes(query.toLowerCase()))
   }, [query, rows])
 
   const handleShow = (index) => {
-    let user = filteredRows[index]
-    setShowUser({
-      status: true,
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      cName: user.cName,
-      cEmail: user.cEmail,
-    })
+    let job = filteredRows[index]
+    navigate('/jobs/show', { state: job })
   }
-  const handleEdit = (index) => {
-    let user = filteredRows[index]
-    navigate('/clients/edit', { state: user })
+  const handleStatus = (index) => {
+    const job = filteredRows[index]
+    const requestOptions = {
+      method: 'put',
+      url: '/jobs',
+      data: { id: job._id, data: { status: !job.status } },
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('adminAuthToken')}`,
+      },
+    }
+    axios
+      .request(requestOptions)
+      .then((result) => {
+        if (result.data) {
+          const rowIndex = rows.findIndex((row) => row._id === job._id)
+          setRows((prevRows) => {
+            const updatedRows = [...prevRows]
+            updatedRows[rowIndex].status = result.data.status
+            return updatedRows
+          })
+        }
+      })
+      .catch((error) => {
+        console.log(error)
+        const err = error.response.data.message === 'Invalid / Expired token'
+        if (err) {
+          navigate('/login')
+          localStorage.clear()
+        }
+      })
   }
-
   return (
     <div className='centerTable'>
-      <Paper sx={{ p: 2, width: '95%', pt: 0, overflow: 'auto', maxHeight: '93vh' }}>
+      <Paper sx={{ p: 2, pt: 0, overflow: 'auto', maxHeight: '93vh' }}>
         <>
           <div
             style={{
@@ -117,7 +126,7 @@ const Jobs = () => {
               position: 'sticky',
               height: '8vh',
               zIndex: '1',
-              top: 0,
+              top: 10,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -126,9 +135,9 @@ const Jobs = () => {
           >
             <Typography
               pl={1}
+              variant='h4'
               display={'inline'}
               sx={{
-                fontSize: '2.3vh',
                 textDecoration: 'Underline',
                 fontWeight: 'bold',
                 color: 'black',
@@ -136,20 +145,23 @@ const Jobs = () => {
             >
               Jobs
             </Typography>
-            <TextField
-              display={isMobile ? 'none' : 'none'}
-              value={query}
-              variant='outlined'
-              onChange={(e) => setQuery(e.target.value)}
-              label='Search Jobs'
-              sx={{
-                display: isMobile ? 'none' : '',
-                bgcolor: 'white',
-                p: '0 !important',
-              }}
-            />
+            <Container maxWidth='sm'>
+              <TextField
+                display={isMobile ? 'none' : 'none'}
+                value={query}
+                fullWidth
+                variant='outlined'
+                onChange={(e) => setQuery(e.target.value)}
+                label='Search by Job Title'
+                sx={{
+                  display: isMobile ? 'none' : '',
+                  bgcolor: 'white',
+                  p: '0 !important',
+                }}
+              />
+            </Container>
             <Button
-              onClick={() => navigate('/clients/new')}
+              onClick={() => navigate('/jobs/new')}
               variant='contained'
               color='success'
               sx={{ maxWidth: 200 }}
@@ -157,7 +169,7 @@ const Jobs = () => {
               Post New Job
             </Button>
           </div>
-          <Table sx={{ fontSize: '1.65vh' }}>
+          <Table sx={{ mt: 4, fontSize: '1.65vh' }}>
             <TableHead
               sx={{
                 outline: '1px solid black',
@@ -169,26 +181,27 @@ const Jobs = () => {
               }}
             >
               <TableRow sx={headStyle}>
-                <TableCell>Ser</TableCell>
-                <TableCell>Full Name</TableCell>
-                <TableCell sx={{ display: isMobile ? 'none' : '' }}>Email</TableCell>
-                <TableCell sx={{ display: isMobile ? 'none' : '' }}>Cell No</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell>Company</TableCell>
+                <TableCell sx={{ display: isMobile ? 'none' : '' }}>Place of Duty</TableCell>
+                <TableCell align='center'>Actions</TableCell>
+                <TableCell sx={{ display: isMobile ? 'none' : '' }}>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody sx={{ marginTop: '10vh' }}>
               {filteredRows.map((row, index) => (
-                <StyledTableRow key={row.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell sx={{ display: isMobile ? 'none' : '' }}>{row.email}</TableCell>
-                  <TableCell sx={{ display: isMobile ? 'none' : '' }}>{row.phone}</TableCell>
-                  <TableCell>
+                <StyledTableRow key={row._id}>
+                  <TableCell>{row.title}</TableCell>
+                  <TableCell>{row.company}</TableCell>
+                  <TableCell
+                    sx={{ display: isMobile ? 'none' : '' }}
+                  >{`${row.country} ${row.city}`}</TableCell>
+                  <TableCell align='center'>
                     <Box
                       sx={{
                         display: 'flex',
                         flexDirection: { xs: 'column', sm: 'row' },
-                        justifyContent: 'flex-start',
+                        justifyContent: 'center',
                       }}
                     >
                       <Button
@@ -199,17 +212,10 @@ const Jobs = () => {
                       >
                         Show
                       </Button>
-                      <Button
-                        variant='contained'
-                        onClick={() => handleEdit(index)}
-                        sx={{ marginInline: 0.5, height: '20px', width: '50px', mb: '5px' }}
-                      >
-                        Edit
-                      </Button>
                       {!isMobile && <Divider orientation='vertical' flexItem sx={{ marginInline: '5px' }} />}
                       <Button
                         onClick={() => {
-                          setDel({ id: row.id, name: row.name })
+                          setDel({ id: row._id, name: `${row.title}` })
                           return setOpenDialog(true)
                         }}
                         variant='contained'
@@ -220,17 +226,35 @@ const Jobs = () => {
                       </Button>
                     </Box>
                   </TableCell>
+                  <TableCell sx={{ display: isMobile ? 'none' : '' }}>
+                    <Switch checked={row.status} onChange={() => handleStatus(index)} />
+                  </TableCell>
                 </StyledTableRow>
               ))}
             </TableBody>
           </Table>
           {filteredRows.length === 0 && (
-            <Typography sx={{ textAlign: 'center', fontSize: '2vh', margin: '4vh' }}>
-              No Job with entered name.
-            </Typography>
+            <Typography sx={{ textAlign: 'center', fontSize: '2vh', margin: '4vh' }}>No Job found</Typography>
           )}
         </>
       </Paper>
+      {openDialog && (
+        <MyDialog
+          title='Confirm'
+          des={`Are you sure you want to delete Job ${del.name}?`}
+          actions={[
+            {
+              onClick: () => {
+                handleDel(del.id)
+                return setOpenDialog(false)
+              },
+              color: 'error',
+              text: 'Delete',
+            },
+            { onClick: () => setOpenDialog(false), color: 'primary', text: 'Cancel' },
+          ]}
+        />
+      )}
     </div>
   )
 }

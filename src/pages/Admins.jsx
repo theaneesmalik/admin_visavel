@@ -92,6 +92,10 @@ const Admins = () => {
   }
   const handleStatus = (index) => {
     const admin = filteredRows[index]
+    if (admin.isSuper) {
+      alert('Super admin proile cannot be deactivated')
+      return
+    }
     const requestOptions = {
       method: 'put',
       url: '/users',
@@ -105,9 +109,11 @@ const Admins = () => {
       .then((result) => {
         if (result.data) {
           const rowIndex = rows.findIndex((row) => row._id === admin._id)
-          const updatedRows = rows
-          updatedRows[rowIndex].status = result.data.status
-          setRows(updatedRows)
+          setRows((prevRows) => {
+            const updatedRows = [...prevRows]
+            updatedRows[rowIndex].status = result.data.status
+            return updatedRows
+          })
         }
       })
       .catch((error) => {

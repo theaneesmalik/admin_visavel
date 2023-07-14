@@ -43,7 +43,7 @@ export default function EditProfile() {
         res.data && navigate('/profile')
       })
       .catch((error) => {
-        const err = error.response.data.message === 'Invalid / Expired token'
+        const err = error.response?.data?.message === 'Invalid / Expired token'
         if (err) {
           navigate('/login')
           localStorage.clear()
